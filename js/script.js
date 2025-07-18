@@ -291,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && !isLoading) {
             // Recarregar dados quando o usuário volta para a aba
-            setTimeout(loadMenu, 1000);
+            setTimeout(loadMenu,);
         }
     });
     
