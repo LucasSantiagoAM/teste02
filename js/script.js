@@ -276,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!isLoading) {
             loadMenu();
         }
-    }, 30000);
+    }, );
     
     // Service Worker para cache (opcional)
     if ('serviceWorker' in navigator) {
