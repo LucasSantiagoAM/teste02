@@ -4,19 +4,76 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cardápio Digital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <header>
-        <h1>Nosso Cardápio</h1>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>Carregando cardápio...</p>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <h1>Nosso Cardápio</h1>
+                <p>Sabores únicos, experiências inesquecíveis</p>
+            </div>
+            <div class="header-actions">
+                <button class="refresh-btn" onclick="refreshMenu()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
     </header>
-    <main id="menu-container">
-        <!-- O cardápio será carregado aqui pelo JavaScript -->
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Search Bar -->
+            <div class="search-section">
+                <div class="search-bar">
+                    <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" id="search-input" placeholder="Buscar pratos, bebidas..." />
+                </div>
+            </div>
+
+            <!-- Menu Container -->
+            <div id="menu-container" class="menu-container">
+                <!-- O cardápio será carregado aqui pelo JavaScript -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-icon">🍽️</div>
+                <h3>Nenhum item encontrado</h3>
+                <p>Tente buscar por outro termo ou verifique se o cardápio está atualizado.</p>
+            </div>
+        </div>
     </main>
-    <footer>
-        <p>&copy; 2025 Cardápio Digital</p>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 Cardápio Digital - Atualizado automaticamente</p>
+            <div class="footer-info">
+                <span id="last-update">Última atualização: --</span>
+                <span class="status-indicator" id="status-indicator">●</span>
+            </div>
+        </div>
     </footer>
+
     <script src="js/script.js"></script>
 </body>
 </html>
-
