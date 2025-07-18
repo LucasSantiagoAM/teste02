@@ -272,11 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loadMenu();
     
     // Atualizar automaticamente a cada 30 segundos
-    setInterval(() => {
-        if (!isLoading) {
-            loadMenu();
-        }
-    }, );
+    
     
     // Service Worker para cache (opcional)
     if ('serviceWorker' in navigator) {
