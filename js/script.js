@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby30S47b_kwp4fIPZ-pR5F-4mViat5wwwoEotXK3JhiDpQGROJ8LaFOsZvMwVKXPSGR9g/exec";
+    const WHATSAPP_NUMBER = "5592994991899"; // Substitua pelo número do WhatsApp do restaurante
     
     // Elementos DOM
     const loadingScreen = document.getElementById('loading-screen');
@@ -8,11 +9,25 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById('search-input');
     const statusIndicator = document.getElementById('status-indicator');
     const lastUpdateElement = document.getElementById('last-update');
+    const cartCountElement = document.getElementById('cart-count');
+    const cartSidebar = document.getElementById('cart-sidebar');
+    const cartOverlay = document.getElementById('cart-overlay');
+    const cartItemsContainer = document.getElementById('cart-items');
+    const cartEmpty = document.getElementById('cart-empty');
+    const cartFooter = document.getElementById('cart-footer');
+    const cartSubtotal = document.getElementById('cart-subtotal');
+    const cartTotal = document.getElementById('cart-total');
+    const checkoutModal = document.getElementById('checkout-modal');
+    const checkoutOverlay = document.getElementById('checkout-overlay');
+    const checkoutForm = document.getElementById('checkout-form');
+    const checkoutTotal = document.getElementById('checkout-total');
     
     // Estado da aplicação
     let menuData = [];
     let filteredData = [];
+    let cart = [];
     let isLoading = false;
+    let lastModified = null;
     
     // Ícones para categorias
     const categoryIcons = {
@@ -46,15 +61,24 @@ document.addEventListener("DOMContentLoaded", () => {
             return `R$ ${price.toFixed(2).replace('.', ',')}`;
         }
         if (typeof price === 'string') {
-            // Se já tem R$, retorna como está
             if (price.includes('R$')) return price;
-            // Tenta converter para número
             const numPrice = parseFloat(price.replace(',', '.'));
             if (!isNaN(numPrice)) {
                 return `R$ ${numPrice.toFixed(2).replace('.', ',')}`;
             }
         }
         return price || 'Consulte o preço';
+    }
+    
+    // Função para converter preço para número
+    function priceToNumber(price) {
+        if (typeof price === 'number') return price;
+        if (typeof price === 'string') {
+            const cleanPrice = price.replace(/[R$\s]/g, '').replace(',', '.');
+            const numPrice = parseFloat(cleanPrice);
+            return isNaN(numPrice) ? 0 : numPrice;
+        }
+        return 0;
     }
     
     // Função para normalizar texto para busca
@@ -138,6 +162,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 itemDiv.style.animationDelay = `${(index * 0.1) + (itemIndex * 0.05)}s`;
                 itemDiv.setAttribute('tabindex', '0');
                 
+                // Imagem do item
+                const itemImage = document.createElement('div');
+                itemImage.classList.add('item-image');
+                
+                if (item.Imagem && item.Imagem.trim()) {
+                    const img = document.createElement('img');
+                    img.src = item.Imagem;
+                    img.alt = item["Nome do Item"] || 'Imagem do produto';
+                    img.onerror = function() {
+                        this.style.display = 'none';
+                        itemImage.textContent = '🍽️';
+                    };
+                    itemImage.appendChild(img);
+                } else {
+                    itemImage.textContent = getCategoryIcon(item.Categoria);
+                }
+                
+                // Conteúdo do item
+                const itemContent = document.createElement('div');
+                itemContent.classList.add('item-content');
+                
                 const itemHeader = document.createElement('div');
                 itemHeader.classList.add('item-header');
                 
@@ -156,26 +201,54 @@ document.addEventListener("DOMContentLoaded", () => {
                 itemDescription.classList.add('item-description');
                 itemDescription.textContent = item.Descrição || 'Sem descrição disponível';
                 
-                const itemFooter = document.createElement('div');
-                itemFooter.classList.add('item-footer');
+                const itemActions = document.createElement('div');
+                itemActions.classList.add('item-actions');
                 
-                const availabilityBadge = document.createElement('span');
-                availabilityBadge.classList.add('availability-badge');
-                availabilityBadge.textContent = 'Disponível';
+                // Controles de quantidade
+                const quantityControls = document.createElement('div');
+                quantityControls.classList.add('quantity-controls');
                 
-                itemFooter.appendChild(availabilityBadge);
+                const decreaseBtn = document.createElement('button');
+                decreaseBtn.classList.add('quantity-btn');
+                decreaseBtn.textContent = '-';
+                decreaseBtn.onclick = () => updateQuantity(item, -1);
                 
-                itemDiv.appendChild(itemHeader);
-                itemDiv.appendChild(itemDescription);
-                itemDiv.appendChild(itemFooter);
+                const quantityDisplay = document.createElement('span');
+                quantityDisplay.classList.add('quantity-display');
+                quantityDisplay.textContent = '1';
+                quantityDisplay.id = `quantity-${item["Nome do Item"]}`;
                 
-                // Adicionar evento de clique para acessibilidade
-                itemDiv.addEventListener('click', () => {
-                    itemDiv.style.transform = 'scale(0.98)';
-                    setTimeout(() => {
-                        itemDiv.style.transform = '';
-                    }, 150);
-                });
+                const increaseBtn = document.createElement('button');
+                increaseBtn.classList.add('quantity-btn');
+                increaseBtn.textContent = '+';
+                increaseBtn.onclick = () => updateQuantity(item, 1);
+                
+                quantityControls.appendChild(decreaseBtn);
+                quantityControls.appendChild(quantityDisplay);
+                quantityControls.appendChild(increaseBtn);
+                
+                // Botão adicionar ao carrinho
+                const addToCartBtn = document.createElement('button');
+                addToCartBtn.classList.add('add-to-cart-btn');
+                addToCartBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="m1 1 4 4 2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    Adicionar
+                `;
+                addToCartBtn.onclick = () => addToCart(item, parseInt(quantityDisplay.textContent));
+                
+                itemActions.appendChild(quantityControls);
+                itemActions.appendChild(addToCartBtn);
+                
+                itemContent.appendChild(itemHeader);
+                itemContent.appendChild(itemDescription);
+                itemContent.appendChild(itemActions);
+                
+                itemDiv.appendChild(itemImage);
+                itemDiv.appendChild(itemContent);
                 
                 itemsGrid.appendChild(itemDiv);
             });
@@ -186,12 +259,153 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     
+    // Função para atualizar quantidade
+    function updateQuantity(item, change) {
+        const quantityElement = document.getElementById(`quantity-${item["Nome do Item"]}`);
+        if (quantityElement) {
+            let currentQuantity = parseInt(quantityElement.textContent);
+            currentQuantity = Math.max(1, currentQuantity + change);
+            quantityElement.textContent = currentQuantity;
+        }
+    }
+    
+    // Função para adicionar ao carrinho
+    function addToCart(item, quantity) {
+        const existingItem = cart.find(cartItem => cartItem.name === item["Nome do Item"]);
+        
+        if (existingItem) {
+            existingItem.quantity += quantity;
+        } else {
+            cart.push({
+                name: item["Nome do Item"],
+                price: priceToNumber(item.Preço),
+                quantity: quantity,
+                image: item.Imagem || '',
+                category: item.Categoria || 'Outros'
+            });
+        }
+        
+        updateCartUI();
+        
+        // Reset quantity display
+        const quantityElement = document.getElementById(`quantity-${item["Nome do Item"]}`);
+        if (quantityElement) {
+            quantityElement.textContent = '1';
+        }
+        
+        // Feedback visual
+        const addBtn = event.target.closest('.add-to-cart-btn');
+        if (addBtn) {
+            addBtn.style.background = '#059669';
+            addBtn.innerHTML = '✓ Adicionado';
+            setTimeout(() => {
+                addBtn.style.background = '';
+                addBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="m1 1 4 4 2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    Adicionar
+                `;
+            }, 1500);
+        }
+    }
+    
+    // Função para atualizar UI do carrinho
+    function updateCartUI() {
+        const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+        cartCountElement.textContent = totalItems;
+        
+        if (cart.length === 0) {
+            cartEmpty.style.display = 'block';
+            cartFooter.style.display = 'none';
+            cartItemsContainer.innerHTML = '';
+            return;
+        }
+        
+        cartEmpty.style.display = 'none';
+        cartFooter.style.display = 'block';
+        
+        // Renderizar itens do carrinho
+        cartItemsContainer.innerHTML = '';
+        cart.forEach((item, index) => {
+            const cartItemDiv = document.createElement('div');
+            cartItemDiv.classList.add('cart-item');
+            
+            cartItemDiv.innerHTML = `
+                <div class="cart-item-image">
+                    ${item.image ? `<img src="${item.image}" alt="${item.name}" onerror="this.style.display='none'; this.parentElement.textContent='🍽️';">` : getCategoryIcon(item.category)}
+                </div>
+                <div class="cart-item-details">
+                    <div class="cart-item-name">${item.name}</div>
+                    <div class="cart-item-price">${formatPrice(item.price)}</div>
+                    <div class="cart-item-controls">
+                        <div class="cart-item-quantity">
+                            <button class="quantity-btn" onclick="updateCartItemQuantity(${index}, -1)">-</button>
+                            <span class="quantity-display">${item.quantity}</span>
+                            <button class="quantity-btn" onclick="updateCartItemQuantity(${index}, 1)">+</button>
+                        </div>
+                        <button class="cart-item-remove" onclick="removeFromCart(${index})">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3,6 5,6 21,6"></polyline>
+                                <path d="m19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2,2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            cartItemsContainer.appendChild(cartItemDiv);
+        });
+        
+        // Calcular totais
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        cartSubtotal.textContent = formatPrice(subtotal);
+        cartTotal.textContent = formatPrice(subtotal);
+        checkoutTotal.textContent = formatPrice(subtotal);
+    }
+    
+    // Função para atualizar quantidade no carrinho
+    window.updateCartItemQuantity = function(index, change) {
+        if (cart[index]) {
+            cart[index].quantity = Math.max(1, cart[index].quantity + change);
+            updateCartUI();
+        }
+    };
+    
+    // Função para remover do carrinho
+    window.removeFromCart = function(index) {
+        cart.splice(index, 1);
+        updateCartUI();
+    };
+    
+    // Função para toggle do carrinho
+    window.toggleCart = function() {
+        cartSidebar.classList.toggle('open');
+        cartOverlay.classList.toggle('active');
+    };
+    
+    // Função para abrir checkout
+    window.openCheckout = function() {
+        if (cart.length === 0) return;
+        
+        checkoutModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    };
+    
+    // Função para fechar checkout
+    window.closeCheckout = function() {
+        checkoutModal.classList.remove('active');
+        document.body.style.overflow = '';
+    };
+    
     // Função para carregar o menu
     async function loadMenu() {
         if (isLoading) return;
         
         isLoading = true;
-        statusIndicator.style.color = '#f59e0b'; // Amarelo para carregando
+        statusIndicator.style.color = '#f59e0b';
         
         try {
             const response = await fetch(SCRIPT_URL);
@@ -207,6 +421,7 @@ document.addEventListener("DOMContentLoaded", () => {
             
             menuData = jsonResponse.data;
             filteredData = [...menuData];
+            lastModified = jsonResponse.lastModified;
             
             // Atualizar timestamp
             const now = new Date();
@@ -221,12 +436,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             
             renderMenu();
-            statusIndicator.style.color = '#10b981'; // Verde para sucesso
+            statusIndicator.style.color = '#10b981';
             
         } catch (error) {
             console.error("Erro ao carregar o cardápio:", error);
             
-            // Esconder loading screen mesmo com erro
             if (loadingScreen) {
                 loadingScreen.classList.add('hidden');
                 setTimeout(() => {
@@ -244,9 +458,34 @@ document.addEventListener("DOMContentLoaded", () => {
                     </button>
                 </div>
             `;
-            statusIndicator.style.color = '#ef4444'; // Vermelho para erro
+            statusIndicator.style.color = '#ef4444';
         } finally {
             isLoading = false;
+        }
+    }
+    
+    // Função para verificar atualizações
+    async function checkForUpdates() {
+        if (isLoading) return;
+        
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=checkUpdates'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.lastModified && data.lastModified !== lastModified) {
+                    // Há atualizações disponíveis
+                    loadMenu();
+                }
+            }
+        } catch (error) {
+            console.log('Erro ao verificar atualizações:', error);
         }
     }
     
@@ -255,12 +494,67 @@ document.addEventListener("DOMContentLoaded", () => {
         loadMenu();
     };
     
-    // Event listener para busca
+    // Função para gerar mensagem do WhatsApp
+    function generateWhatsAppMessage(orderData) {
+        let message = "🍽️ *NOVO PEDIDO - CARDÁPIO DIGITAL*\\n\\n";
+        
+        // Informações do cliente
+        message += "👤 *DADOS DO CLIENTE*\\n";
+        message += `Nome: ${orderData.customerName}\\n`;
+        message += `Telefone: ${orderData.customerPhone}\\n\\n`;
+        
+        // Endereço
+        message += "📍 *ENDEREÇO DE ENTREGA*\\n";
+        message += `${orderData.customerAddress}\\n`;
+        if (orderData.addressReference) {
+            message += `Referência: ${orderData.addressReference}\\n`;
+        }
+        message += "\\n";
+        
+        // Itens do pedido
+        message += "🛒 *ITENS DO PEDIDO*\\n";
+        let total = 0;
+        cart.forEach(item => {
+            const itemTotal = item.price * item.quantity;
+            total += itemTotal;
+            message += `• ${item.quantity}x ${item.name}\\n`;
+            message += `  ${formatPrice(item.price)} cada = ${formatPrice(itemTotal)}\\n\\n`;
+        });
+        
+        // Total
+        message += `💰 *TOTAL: ${formatPrice(total)}*\\n\\n`;
+        
+        // Forma de pagamento
+        message += "💳 *FORMA DE PAGAMENTO*\\n";
+        const paymentMethods = {
+            'dinheiro': '💵 Dinheiro',
+            'pix': '📱 PIX',
+            'cartao-debito': '💳 Cartão de Débito',
+            'cartao-credito': '💳 Cartão de Crédito'
+        };
+        message += `${paymentMethods[orderData.paymentMethod] || orderData.paymentMethod}\\n`;
+        
+        if (orderData.paymentMethod === 'dinheiro' && orderData.changeAmount) {
+            message += `Troco para: ${formatPrice(orderData.changeAmount)}\\n`;
+        }
+        message += "\\n";
+        
+        // Observações
+        if (orderData.orderNotes) {
+            message += "📝 *OBSERVAÇÕES*\\n";
+            message += `${orderData.orderNotes}\\n\\n`;
+        }
+        
+        message += "⏰ Pedido realizado em: " + new Date().toLocaleString('pt-BR');
+        
+        return message;
+    }
+    
+    // Event listeners
     searchInput.addEventListener('input', (e) => {
         filterMenu(e.target.value);
     });
     
-    // Event listener para busca com Enter
     searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -268,34 +562,77 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
     
+    // Event listener para forma de pagamento
+    document.addEventListener('change', (e) => {
+        if (e.target.name === 'paymentMethod') {
+            const changeGroup = document.getElementById('change-group');
+            if (e.target.value === 'dinheiro') {
+                changeGroup.style.display = 'block';
+            } else {
+                changeGroup.style.display = 'none';
+            }
+        }
+    });
+    
+    // Event listener para submit do checkout
+    checkoutForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        if (cart.length === 0) {
+            alert('Seu carrinho está vazio!');
+            return;
+        }
+        
+        const formData = new FormData(checkoutForm);
+        const orderData = {
+            customerName: formData.get('customerName'),
+            customerPhone: formData.get('customerPhone'),
+            customerAddress: formData.get('customerAddress'),
+            addressReference: formData.get('addressReference'),
+            paymentMethod: formData.get('paymentMethod'),
+            changeAmount: formData.get('changeAmount'),
+            orderNotes: formData.get('orderNotes')
+        };
+        
+        // Validação básica
+        if (!orderData.customerName || !orderData.customerPhone || !orderData.customerAddress || !orderData.paymentMethod) {
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            return;
+        }
+        
+        // Gerar mensagem do WhatsApp
+        const message = generateWhatsAppMessage(orderData);
+        const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+        
+        // Abrir WhatsApp
+        window.open(whatsappUrl, '_blank');
+        
+        // Limpar carrinho e fechar modal
+        cart = [];
+        updateCartUI();
+        closeCheckout();
+        toggleCart();
+        
+        // Reset form
+        checkoutForm.reset();
+        
+        alert('Pedido enviado! Você será redirecionado para o WhatsApp.');
+    });
+    
     // Carregar menu inicial
     loadMenu();
     
-    // Atualizar automaticamente a cada 30 segundos
-    
-    
-    // Service Worker para cache (opcional)
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
-                .then((registration) => {
-                    console.log('SW registered: ', registration);
-                })
-                .catch((registrationError) => {
-                    console.log('SW registration failed: ', registrationError);
-                });
-        });
-    }
+    // Verificar atualizações a cada 30 segundos
+    setInterval(checkForUpdates, 30000);
     
     // Detectar quando o usuário volta para a aba
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && !isLoading) {
-            // Recarregar dados quando o usuário volta para a aba
-            setTimeout(loadMenu,);
+            setTimeout(checkForUpdates, 1000);
         }
     });
     
-    // Adicionar suporte a gestos de pull-to-refresh em mobile
+    // Suporte a gestos de pull-to-refresh em mobile
     let startY = 0;
     let currentY = 0;
     let pullDistance = 0;
@@ -314,7 +651,6 @@ document.addEventListener("DOMContentLoaded", () => {
             
             if (pullDistance > 0 && pullDistance < pullThreshold * 2) {
                 e.preventDefault();
-                // Adicionar feedback visual aqui se desejar
             }
         }
     });
@@ -328,3 +664,4 @@ document.addEventListener("DOMContentLoaded", () => {
         pullDistance = 0;
     });
 });
+
